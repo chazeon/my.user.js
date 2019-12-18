@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         贴吧阅读器
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  try to take over the world!
 // @author       Chazeon
 // @match        *://tieba.baidu.com/p/*
@@ -22,12 +22,27 @@
         return line;
     }
 
+    function replaceHiResImages(content) {
+        content = content.replace(
+            /https?:\/\/imgsa.baidu.com\/forum\/[^\/]+\/sign=[^\/]+\/([0-9a-f]+.jpg)/g,
+            "https://imgsrc.baidu.com/forum/pic/item/$1")
+        content = content.replace(
+            /https?:\/\/tiebapic.baidu.com\/forum\/[^\/]+\/sign=[^\/]+\/([0-9a-f]+.jpg)/g,
+            "https://tiebapic.baidu.com/forum/pic/item/$1")
+        return content
+    }
+
+
+
     function parseContents(contents) {
 
-        let lines = []
+        let lines = [];
 
         for (let content of contents) {
-            for (let line of content.innerHTML.split(/<br>|\n/g)) {
+            let contentHTML = content.innerHTML
+                //alert(contentHTML);
+            contentHTML = replaceHiResImages(contentHTML);
+            for (let line of contentHTML.split(/<br>/g)) {
                 line = processLine(line);
                 if (line.length > 0) lines.push(line);
             }
@@ -35,8 +50,17 @@
         }
 
         let processed = _.join(lines, "\n");
-        processed = pangu.spacing(processed)
+        //processed = pangu.spacing(processed)
         return processed;
+    }
+
+    function hideText() {
+        GM_addStyle(`
+.article > p {
+    font-size: 0px;
+    line-height: 0px;
+}
+        `)
     }
 
 
@@ -44,6 +68,7 @@
         let contents = $(".d_post_content");
         let processed = parseContents(contents);
         $("#j_p_postlist").html(`<main class="article-container"><article class="article">${processed}</article></main>`);
+        pangu.spacingElementById('j_p_postlist');
         $(".right_section").html('');
         $('#toggle-read').addClass('btn-disabled');
         GM_addStyle(`
@@ -71,7 +96,14 @@ hr {
     margin-block-start: 1em;
     margin-block-end: 1em;
 }
+#toggle-read {
+    display: none;
+}
         `)
+        $(".core_title_btns").append(`<a id="hide-text" class="btn-small btn-sub j_hide_text">隐藏文字</a>`);
+        $(".j_hide_text").click(function() {
+            hideText()
+        })
     }
 
     $(".core_title_btns").append(`<a id="toggle-read" class="btn-small btn-sub j_read_mode">阅读模式</a>`);
